@@ -1,127 +1,238 @@
-from typing import TypedDict, Annotated, List
+import functools
 import operator
-from langgraph.graph import StateGraph, END
-from langchain_groq import ChatGroq
+import os
+import time
+import uuid
+from typing import Annotated, Any, TypedDict
+
+from dotenv import load_dotenv, find_dotenv
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_core.messages import HumanMessage, SystemMessage
-import os
+from langchain_groq import ChatGroq
+from langgraph.graph import END, StateGraph
+from zep_cloud import Zep, Message
+from zep_cloud.errors import NotFoundError
 
-# ─── State ────────────────────────────────────────────────────────────────────
+# ---------------------------
+# 1. LOAD & VALIDATE ENV
+# ---------------------------
+dotenv_path = find_dotenv()
+if not dotenv_path:
+    raise FileNotFoundError(
+        "No .env file found. Create one in the same folder with:\n"
+        "GROQ_API_KEY=gsk_...\nZEP_API_KEY=your_zep_key\nTAVILY_API_KEY=your_tavily_key"
+    )
+load_dotenv(dotenv_path, override=True)
 
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+ZEP_API_KEY = os.getenv("ZEP_API_KEY")
+TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
+
+for key, name in [(GROQ_API_KEY, "GROQ_API_KEY"), (ZEP_API_KEY, "ZEP_API_KEY"), (TAVILY_API_KEY, "TAVILY_API_KEY")]:
+    if not key:
+        raise ValueError(f"{name} not found in .env file. Please add it.")
+
+print("✅ Loaded backend API keys from .env.")
+
+# ---------------------------
+# 2. STATE & UTILITIES
+# ---------------------------
 class ResearchState(TypedDict):
     topic: str
-    search_results: Annotated[List[str], operator.add]
-    summaries: Annotated[List[str], operator.add]
+    search_results: Annotated[list[dict[str, str]], operator.add]
+    summaries: Annotated[list[str], operator.add]
     final_report: str
+    source_count: int
+    report_length: str
+    tone: str
+    include_citations: bool
+    user_id: str
+    thread_id: str
+    zep_context: str
 
-# ─── LLM & Tools ──────────────────────────────────────────────────────────────
+def get_zep_client() -> Zep:
+    return Zep(api_key=ZEP_API_KEY)
 
-def get_llm():
+def ensure_zep_user_and_thread(user_id: str, thread_id: str) -> None:
+    zep = get_zep_client()
+    try:
+        zep.user.get(user_id)
+    except NotFoundError:
+        zep.user.add(user_id=user_id)
+    try:
+        zep.thread.get(thread_id)
+    except NotFoundError:
+        zep.thread.create(thread_id=thread_id, user_id=user_id)
+
+def retry_on_exception(max_retries=3, delay=2):
+    """Lightweight retry decorator to avoid external dependencies like tenacity."""
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    if attempt == max_retries - 1:
+                        raise e
+                    print(f"   ⚠️  Attempt {attempt + 1} failed: {e}. Retrying in {delay}s...")
+                    time.sleep(delay)
+        return wrapper
+    return decorator
+
+@retry_on_exception(max_retries=3, delay=1)
+def safe_llm_invoke(llm, messages):
+    return llm.invoke(messages)
+
+@retry_on_exception(max_retries=2, delay=1)
+def safe_search_invoke(tool, query):
+    return tool.invoke(query)
+
+# ---------------------------
+# 3. MODEL & TOOLS
+# ---------------------------
+def get_llm() -> ChatGroq:
     return ChatGroq(
         model="llama-3.3-70b-versatile",
-        api_key=os.environ["GROQ_API_KEY"],
         temperature=0.3,
+        api_key=GROQ_API_KEY,
     )
 
-def get_search_tool():
-    return TavilySearchResults(
-        max_results=5,
-        api_key=os.environ["TAVILY_API_KEY"],
-    )
+def get_search_tool(max_results: int) -> TavilySearchResults:
+    return TavilySearchResults(max_results=max_results)
 
-# ─── Agent 1: Searcher ─────────────────────────────────────────────────────────
-
-def searcher_agent(state: ResearchState) -> ResearchState:
-    """Searches the web for information on the topic."""
-    print(f"\n🔍 Searcher Agent: Searching for '{state['topic']}'...")
-
-    search_tool = get_search_tool()
-    results = search_tool.invoke(state["topic"])
-
-    # Extract content from results
-    contents = []
-    for r in results:
-        if isinstance(r, dict):
-            content = r.get("content", "") or r.get("snippet", "")
-            url = r.get("url", "")
-            contents.append(f"Source: {url}\n{content}")
-
-    print(f"   ✅ Found {len(contents)} results")
-    return {"search_results": contents}
-
-# ─── Agent 2: Summarizer ───────────────────────────────────────────────────────
-
-def summarizer_agent(state: ResearchState) -> ResearchState:
-    """Summarizes each search result."""
-    print(f"\n📝 Summarizer Agent: Summarizing {len(state['search_results'])} results...")
-
-    llm = get_llm()
-    summaries = []
-
-    for i, result in enumerate(state["search_results"]):
-        messages = [
-            SystemMessage(content="You are a research assistant. Summarize the following web content concisely in 2-3 sentences, keeping only the most important facts."),
-            HumanMessage(content=f"Content to summarize:\n\n{result[:2000]}")
-        ]
-        response = llm.invoke(messages)
-        summaries.append(f"[Source {i+1}] {response.content}")
-        print(f"   ✅ Summarized source {i+1}")
-
-    return {"summaries": summaries}
-
-# ─── Agent 3: Report Writer ────────────────────────────────────────────────────
-
-def writer_agent(state: ResearchState) -> ResearchState:
-    """Writes a comprehensive report from the summaries."""
-    print(f"\n✍️  Writer Agent: Writing final report...")
-
-    llm = get_llm()
-
-    summaries_text = "\n\n".join(state["summaries"])
-
-    messages = [
-        SystemMessage(content="""You are an expert research report writer.
-Write a comprehensive, well-structured research report based on the provided summaries.
-Format the report with:
-- An executive summary (2-3 sentences)
-- Key Findings (3-5 bullet points)
-- Detailed Analysis (3-4 paragraphs)
-- Conclusion (1-2 sentences)
-Make it professional and insightful."""),
-        HumanMessage(content=f"Topic: {state['topic']}\n\nResearch Summaries:\n\n{summaries_text}")
+# ---------------------------
+# 4. AGENTS
+# ---------------------------
+def searcher_agent(state: ResearchState) -> dict[str, Any]:
+    print(f"\n🔍 --- Searcher: Finding data for '{state['topic']}' ---")
+    search_tool = get_search_tool(state["source_count"])
+    results = safe_search_invoke(search_tool, state["topic"])
+    sources = [
+        {"title": r.get("title", "Unknown"), "url": r.get("url", ""), "content": str(r.get("content", ""))}
+        for r in results
     ]
 
-    response = llm.invoke(messages)
-    print(f"   ✅ Report written!")
+    try:
+        zep = get_zep_client()
+        zep.thread.add_messages(
+            thread_id=state["thread_id"],
+            messages=[
+                Message(role="user", content=f"Researching: {state['topic']}"),
+                Message(role="assistant", content=f"Found {len(sources)} sources.")
+            ]
+        )
+    except Exception as e:
+        print(f"   📉 Zep Log Warning: {e}")
+
+    return {"search_results": sources}
+
+def summarizer_agent(state: ResearchState) -> dict[str, Any]:
+    print(f"📝 --- Summarizer: Processing {len(state['search_results'])} results ---")
+    llm = get_llm()
+    summaries = []
+    for source in state["search_results"]:
+        content = source["content"][:1500]  # Limit context window
+        res = safe_llm_invoke(llm, [
+            SystemMessage(content="Summarize the following text in exactly 2 concise sentences. Focus on key facts and data."),
+            HumanMessage(content=content)
+        ])
+        summaries.append(res.content)
+    return {"summaries": summaries}
+
+def context_retriever_agent(state: ResearchState) -> dict[str, Any]:
+    print("🧠 --- Context Agent: Fetching Graph Intelligence ---")
+    zep_context = ""
+    try:
+        zep = get_zep_client()
+        # Note: Method name may vary by zep-cloud version. Fallback safely.
+        response = zep.graph.get_user_context(user_id=state["user_id"])
+        zep_context = getattr(response, "context", "") or ""
+    except Exception as e:
+        print(f"   📉 Graph Retrieval Warning: {e}")
+    return {"zep_context": zep_context}
+
+def writer_agent(state: ResearchState) -> dict[str, Any]:
+    print("✍️ --- Writer: Generating final report ---")
+    llm = get_llm()
+    summaries_block = "\n".join(state["summaries"])[:5000]
+    past_context = state["zep_context"][:1500]
+    citation_instruction = "Include inline citations [Source URL] where applicable." if state["include_citations"] else "Do not include citations."
+
+    prompt = f"""
+Topic: {state['topic']}
+Length: {state['report_length']}
+Tone: {state['tone']}
+{citation_instruction}
+Previous Context: {past_context}
+Summaries:
+{summaries_block}
+"""
+    response = safe_llm_invoke(llm, [
+        SystemMessage(content="You are an expert technical researcher. Write a formal, well-structured report based strictly on the provided findings. Adhere strictly to the requested tone and length."),
+        HumanMessage(content=prompt.strip())
+    ])
     return {"final_report": response.content}
 
-# ─── Build Graph ───────────────────────────────────────────────────────────────
-
+# ---------------------------
+# 5. GRAPH BUILDER & RUNNER
+# ---------------------------
 def build_research_graph():
-    graph = StateGraph(ResearchState)
+    workflow = StateGraph(ResearchState)
+    workflow.add_node("searcher", searcher_agent)
+    workflow.add_node("summarizer", summarizer_agent)
+    workflow.add_node("context_retriever", context_retriever_agent)
+    workflow.add_node("writer", writer_agent)
 
-    graph.add_node("searcher", searcher_agent)
-    graph.add_node("summarizer", summarizer_agent)
-    graph.add_node("writer", writer_agent)
+    workflow.set_entry_point("searcher")
+    workflow.add_edge("searcher", "summarizer")
+    workflow.add_edge("summarizer", "context_retriever")
+    workflow.add_edge("context_retriever", "writer")
+    workflow.add_edge("writer", END)
+    return workflow.compile()
 
-    graph.set_entry_point("searcher")
-    graph.add_edge("searcher", "summarizer")
-    graph.add_edge("summarizer", "writer")
-    graph.add_edge("writer", END)
+def run_research(
+    topic: str,
+    source_count: int = 2,
+    report_length: str = "Standard",
+    tone: str = "Technical",
+    include_citations: bool = True,
+    user_id: str = "researcher_vasan",
+    thread_id: str | None = None,
+) -> ResearchState:
+    thread_id = thread_id or f"thread_{uuid.uuid4().hex[:6]}"
+    ensure_zep_user_and_thread(user_id, thread_id)
 
-    return graph.compile()
-
-# ─── Run ───────────────────────────────────────────────────────────────────────
-
-def run_research(topic: str) -> dict:
-    graph = build_research_graph()
-
-    initial_state = {
+    app = build_research_graph()
+    return app.invoke({
         "topic": topic,
         "search_results": [],
         "summaries": [],
         "final_report": "",
-    }
+        "source_count": source_count,
+        "report_length": report_length,
+        "tone": tone,
+        "include_citations": include_citations,
+        "user_id": user_id,
+        "thread_id": thread_id,
+        "zep_context": "",
+    })
 
-    result = graph.invoke(initial_state)
-    return result
+# ---------------------------
+# 6. EXECUTION
+# ---------------------------
+if __name__ == "__main__":
+    result = run_research(
+        topic="Impact of OpenAI o1 on coding agents",
+        source_count=2,
+        report_length="Standard",
+        tone="Technical",
+        include_citations=True,
+        user_id="researcher_vasan"
+    )
+
+    print("\n" + "="*60)
+    print("📄 FINAL REPORT")
+    print("="*60)
+    print(result["final_report"])
+    print("="*60)
