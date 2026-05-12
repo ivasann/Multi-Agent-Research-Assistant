@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Research, reimagined. - Multi-Agent Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg-cream: #FCFbf9;
+  --text-dark: #2A2431;
+  --text-muted: #7A7285;
+  --purple-light: #EFEAF5;
+  --purple-mid: #D1C0E5;
+  --purple-accent: #9B7ED1;
+  --purple-glow: rgba(155, 126, 209, 0.4);
+  --white: #FFFFFF;
+  --border: rgba(42, 36, 49, 0.08);
+
+  --font-serif: 'Cormorant Garamond', serif;
+  --font-sans: 'Space Grotesk', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-cream);
+  color: var(--text-dark);
+  overflow-x: hidden;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* NAV */
+nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 48px;
+  background: transparent;
+  z-index: 100;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+
+.logo {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  font-size: 24px;
+  text-decoration: none;
+  color: var(--text-dark);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--purple-accent);
+  border-radius: 50%;
+}
+
+.nav-links {
+  display: flex;
+  gap: 32px;
+  list-style: none;
+}
+
+.nav-links a {
+  text-decoration: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.nav-links a:hover {
+  color: var(--text-dark);
+}
+
+.nav-cta {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  color: var(--text-dark);
+  background: var(--white);
+  border: 1px solid var(--border);
+  padding: 10px 24px;
+  border-radius: 100px;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+}
+
+.nav-cta:hover {
+  border-color: var(--purple-mid);
+  box-shadow: 0 4px 12px var(--purple-glow);
+  transform: translateY(-1px);
+}
+
+/* HERO SECTION */
+.hero {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 160px 24px 80px;
+  position: relative;
+  background: radial-gradient(circle at 50% -20%, var(--purple-light) 0%, transparent 70%);
+}
+
+.hero-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-bottom: 32px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.02);
+}
+
+.hero-tag svg {
+  width: 14px;
+  height: 14px;
+  color: var(--purple-accent);
+}
+
+.hero h1 {
+  font-family: var(--font-serif);
+  font-size: clamp(60px, 8vw, 100px);
+  font-weight: 500;
+  font-style: italic;
+  line-height: 1.1;
+  color: var(--text-dark);
+  margin-bottom: 24px;
+}
+
+.hero p.subtitle {
+  font-family: var(--font-sans);
+  font-size: clamp(16px, 2vw, 20px);
+  font-weight: 400;
+  color: var(--text-muted);
+  max-width: 600px;
+  line-height: 1.6;
+  margin-bottom: 48px;
+}
+
+/* SEARCH BAR */
+.search-container {
+  width: 100%;
+  max-width: 640px;
+  position: relative;
+  margin-bottom: 48px;
+}
+
+.search-bar {
+  width: 100%;
+  padding: 20px 24px 20px 56px;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  color: var(--text-dark);
+  background: var(--white);
+  border: 1px solid rgba(155, 126, 209, 0.2);
+  border-radius: 100px;
+  outline: none;
+  box-shadow: 0 8px 32px var(--purple-glow);
+  transition: all 0.3s ease;
+}
+
+.search-bar::placeholder {
+  color: #A9A4B3;
+  font-weight: 300;
+}
+
+.search-bar:focus {
+  border-color: var(--purple-accent);
+  box-shadow: 0 12px 48px var(--purple-glow);
+}
+
+.search-icon {
+  position: absolute;
+  left: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--purple-accent);
+}
+
+.search-btn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--text-dark);
+  color: var(--white);
+  border: none;
+  border-radius: 100px;
+  padding: 10px 24px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.search-btn:hover {
+  background: var(--purple-accent);
+}
+
+.hero-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 34px;
+}
+
+.hero-actions .search-btn {
+  position: static;
+  transform: none;
+  text-decoration: none;
+}
+
+.secondary-btn {
+  color: var(--text-dark);
+  background: var(--white);
+  border: 1px solid var(--border);
+}
+
+.secondary-btn:hover {
+  border-color: var(--purple-mid);
+  background: var(--purple-light);
+}
+
+/* AGENT STATUS CHIPS */
+.agent-chips {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--white);
+  padding: 8px 16px;
+  border-radius: 100px;
+  border: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+  transition: all 0.3s ease;
+}
+
+.chip:hover {
+  border-color: var(--purple-mid);
+  transform: translateY(-2px);
+  color: var(--text-dark);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.dot-search { background: #4DB6AC; box-shadow: 0 0 8px rgba(77, 182, 172, 0.6); }
+.dot-summary { background: #FFB74D; box-shadow: 0 0 8px rgba(255, 183, 77, 0.6); }
+.dot-writer { background: var(--purple-accent); box-shadow: 0 0 8px var(--purple-glow); }
+
+/* AGENT COMPONENTS */
+.section {
+  width: min(1180px, calc(100% - 48px));
+  margin: 0 auto 72px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.section-kicker {
+  color: var(--purple-accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.section-header h2 {
+  font-family: var(--font-serif);
+  font-size: clamp(36px, 5vw, 58px);
+  font-weight: 500;
+  line-height: 1;
+}
+
+.section-header p {
+  color: var(--text-muted);
+  max-width: 430px;
+  line-height: 1.6;
+}
+
+.agent-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.agent-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 22px;
+  box-shadow: 0 10px 28px rgba(42, 36, 49, 0.04);
+  min-height: 238px;
+}
+
+.agent-card.active {
+  border-color: rgba(155, 126, 209, 0.45);
+  box-shadow: 0 18px 42px rgba(155, 126, 209, 0.16);
+}
+
+.agent-step {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 18px;
+}
+
+.agent-card h3 {
+  font-size: 20px;
+  margin-bottom: 10px;
+}
+
+.agent-card p {
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.55;
+  margin-bottom: 18px;
+}
+
+.agent-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.agent-meta span,
+.state-row span,
+.tool-pill {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 6px 10px;
+  color: var(--text-muted);
+  background: #FEFDFB;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.workflow-panel,
+.state-panel,
+.demo-panel {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 12px 34px rgba(42, 36, 49, 0.04);
+}
+
+.workflow-line {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  position: relative;
+}
+
+.workflow-node {
+  border: 1px solid rgba(155, 126, 209, 0.26);
+  border-radius: 8px;
+  padding: 18px;
+  background: linear-gradient(180deg, #FFFFFF 0%, #F8F5FC 100%);
+  position: relative;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, background 0.2s ease;
+}
+
+.workflow-node::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -18px;
+  width: 22px;
+  height: 2px;
+  background: rgba(155, 126, 209, 0.28);
+  transform: translateY(-50%);
+  z-index: 2;
+}
+
+.workflow-node:last-child::after {
+  display: none;
+}
+
+.workflow-node.active {
+  border-color: var(--purple-accent);
+  background: linear-gradient(180deg, #FFFFFF 0%, #EFEAF5 100%);
+  box-shadow: 0 14px 34px rgba(155, 126, 209, 0.28);
+  transform: translateY(-3px);
+}
+
+.workflow-node.done {
+  border-color: rgba(77, 182, 172, 0.55);
+  background: linear-gradient(180deg, #FFFFFF 0%, #EEF8F6 100%);
+}
+
+.workflow-node.done::before {
+  content: "";
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #4DB6AC;
+  box-shadow: 0 0 10px rgba(77, 182, 172, 0.55);
+}
+
+.workflow-node strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.workflow-node small {
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.state-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.state-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.state-row:last-child {
+  border-bottom: 0;
+}
+
+.tool-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.demo-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 360px) 1fr;
+  gap: 20px;
+}
+
+.demo-controls {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.demo-controls input,
+.demo-controls select {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 13px 14px;
+  font-family: var(--font-sans);
+  color: var(--text-dark);
+  background: #FEFDFB;
+}
+
+.demo-controls .search-btn {
+  position: static;
+  transform: none;
+  justify-content: center;
+}
+
+.run-log {
+  background: #17131F;
+  color: #F8F5FC;
+  border-radius: 8px;
+  padding: 18px;
+  min-height: 286px;
+  font-family: Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+/* AMBIENT BACKGROUND EFFECTS */
+.ambient-blur {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  z-index: -1;
+  opacity: 0.6;
+  pointer-events: none;
+  animation: float 10s ease-in-out infinite alternate;
+}
+
+.blur-1 {
+  width: 400px;
+  height: 400px;
+  background: rgba(209, 192, 229, 0.4);
+  top: -100px;
+  left: -100px;
+}
+
+.blur-2 {
+  width: 500px;
+  height: 500px;
+  background: rgba(239, 234, 245, 0.8);
+  bottom: 0;
+  right: -150px;
+  animation-delay: -5s;
+}
+
+@keyframes float {
+  0% { transform: translate(0, 0); }
+  100% { transform: translate(30px, -30px); }
+}
+
+@media (max-width: 768px) {
+  nav { padding: 20px; }
+  .nav-links { display: none; }
+  .hero { padding: 120px 20px 60px; }
+  .search-container { max-width: 100%; }
+  .search-bar { padding: 16px 16px 16px 48px; font-size: 14px; }
+  .search-btn { position: static; transform: none; margin-top: 12px; width: 100%; justify-content: center; }
+  .section { width: 100%; padding: 0 16px; }
+  .section-header { flex-direction: column; align-items: flex-start; }
+  .agent-grid,
+  .workflow-line,
+  .state-grid,
+  .demo-panel { grid-template-columns: 1fr; }
+  .hero-actions { width: 100%; }
+  .hero-actions .search-btn { margin-top: 0; }
+}
+
+</style>
+</head>
+<body>
+
+  <!-- AMBIENT BACKGROUND -->
+  <div class="ambient-blur blur-1"></div>
+  <div class="ambient-blur blur-2"></div>
+
+  <!-- NAV -->
+  <nav>
+    <a href="#" class="logo">
+      <div class="logo-dot"></div>
+      ResearchAI
+    </a>
+    <ul class="nav-links">
+      <li><a href="#agents">Agents</a></li>
+      <li><a href="#workflow">Workflow</a></li>
+      <li><a href="#state">State</a></li>
+    </ul>
+    <a href="#demo" class="nav-cta">Preview pipeline</a>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-tag">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+      Multi-Agent Intelligence
+    </div>
+
+    <h1>Research, reimagined.</h1>
+
+    <p class="subtitle">Enter a topic and let our autonomous agents search the web, distill key insights, and draft a comprehensive report in seconds.</p>
+
+    <!-- SEARCH BAR -->
+    <div class="search-container">
+      <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="text" class="search-bar" id="topicInput" placeholder="Ask anything... e.g. self-healing RAG systems"/>
+      <button class="search-btn" id="synthesizeBtn" type="button">
+        <span>Preview</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+
+    <div class="hero-actions">
+      <a class="search-btn secondary-btn" href="#agents">View agents</a>
+      <a class="search-btn" href="#workflow">
+        <span>See LangGraph flow</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17 17 7M7 7h10v10"/></svg>
+      </a>
+    </div>
+
+    <!-- AGENT STATUS CHIPS -->
+    <div class="agent-chips">
+      <div class="chip">
+        <div class="status-dot dot-search"></div>
+        Searcher
+      </div>
+      <div class="chip">
+        <div class="status-dot dot-summary"></div>
+        Summarizer
+      </div>
+      <div class="chip">
+        <div class="status-dot dot-writer"></div>
+        Writer
+      </div>
+      <div class="chip">
+        <div class="status-dot dot-search"></div>
+        Context Retriever
+      </div>
+    </div>
+  </section>
+
+  <!-- AGENTS FROM agents.py -->
+  <section class="section" id="agents">
+    <div class="section-header">
+      <div>
+        <div class="section-kicker">agents.py components</div>
+        <h2>Four focused research agents.</h2>
+      </div>
+      <p>These blocks mirror the useful functions in agents.py: search, summarize, retrieve memory context, and write the final report.</p>
+    </div>
+    <div class="agent-grid">
+      <article class="agent-card active" data-agent="searcher">
+        <div class="agent-step">Step 01</div>
+        <h3>Searcher</h3>
+        <p>Calls Tavily with the requested source count and normalizes each result into title, URL, and content fields.</p>
+        <div class="agent-meta">
+          <span>TavilySearchResults</span>
+          <span>search_results</span>
+        </div>
+      </article>
+      <article class="agent-card" data-agent="summarizer">
+        <div class="agent-step">Step 02</div>
+        <h3>Summarizer</h3>
+        <p>Uses Groq to compress each source into a short summary that can be passed safely into the report writer.</p>
+        <div class="agent-meta">
+          <span>ChatGroq</span>
+          <span>summaries</span>
+        </div>
+      </article>
+      <article class="agent-card" data-agent="context">
+        <div class="agent-step">Step 03</div>
+        <h3>Context Retriever</h3>
+        <p>Fetches Zep graph context for the user so the report can account for remembered project knowledge.</p>
+        <div class="agent-meta">
+          <span>Zep graph</span>
+          <span>zep_context</span>
+        </div>
+      </article>
+      <article class="agent-card" data-agent="writer">
+        <div class="agent-step">Step 04</div>
+        <h3>Writer</h3>
+        <p>Combines the topic, retrieved context, and source summaries into a formal final report.</p>
+        <div class="agent-meta">
+          <span>ChatGroq</span>
+          <span>final_report</span>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="section" id="workflow">
+    <div class="section-header">
+      <div>
+        <div class="section-kicker">LangGraph workflow</div>
+        <h2>The exact execution path.</h2>
+      </div>
+      <p>The frontend now shows the same graph shape built by build_research_graph in agents.py.</p>
+    </div>
+    <div class="workflow-panel">
+      <div class="workflow-line">
+        <div class="workflow-node" data-step="searcher"><strong>searcher</strong><small>Entry point. Finds sources and logs the research topic to Zep.</small></div>
+        <div class="workflow-node" data-step="summarizer"><strong>summarizer</strong><small>Processes search_results and creates concise source summaries.</small></div>
+        <div class="workflow-node" data-step="context"><strong>context_retriever</strong><small>Loads user graph context from Zep before report writing.</small></div>
+        <div class="workflow-node" data-step="writer"><strong>writer</strong><small>Generates final_report, then the graph reaches END.</small></div>
+      </div>
+      <div class="tool-stack">
+        <span class="tool-pill">LangGraph StateGraph</span>
+        <span class="tool-pill">Groq llama-3.3-70b-versatile</span>
+        <span class="tool-pill">Tavily Search</span>
+        <span class="tool-pill">Zep memory graph</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="state">
+    <div class="section-header">
+      <div>
+        <div class="section-kicker">ResearchState</div>
+        <h2>State passed between agents.</h2>
+      </div>
+      <p>The page also exposes the useful state fields from the TypedDict so the pipeline is easier to understand from the UI.</p>
+    </div>
+    <div class="state-grid">
+      <div class="state-panel">
+        <div class="state-row"><strong>topic</strong><span>user input</span></div>
+        <div class="state-row"><strong>source_count</strong><span>search setting</span></div>
+        <div class="state-row"><strong>report_length</strong><span>report setting</span></div>
+        <div class="state-row"><strong>tone</strong><span>writing style</span></div>
+      </div>
+      <div class="state-panel">
+        <div class="state-row"><strong>search_results</strong><span>Searcher output</span></div>
+        <div class="state-row"><strong>summaries</strong><span>Summarizer output</span></div>
+        <div class="state-row"><strong>zep_context</strong><span>Context output</span></div>
+        <div class="state-row"><strong>final_report</strong><span>Writer output</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="demo">
+    <div class="section-header">
+      <div>
+        <div class="section-kicker">frontend preview</div>
+        <h2>Run a visual pipeline pass.</h2>
+      </div>
+      <p>This calls the local Python backend, which keeps API keys in .env and runs the agents.py graph.</p>
+    </div>
+    <div class="demo-panel">
+      <div class="demo-controls">
+        <input type="text" id="demoTopic" placeholder="Research topic"/>
+        <select id="demoSources">
+          <option value="2">2 sources</option>
+          <option value="3">3 sources</option>
+          <option value="5">5 sources</option>
+        </select>
+        <select id="demoTone">
+          <option>Technical</option>
+          <option>Executive</option>
+          <option>Plain English</option>
+        </select>
+        <button class="search-btn" id="runPreviewBtn" type="button">Run research</button>
+      </div>
+      <pre class="run-log" id="runLog">Start api_server.py, then enter a topic...</pre>
+    </div>
+  </section>
+
+  <script>
+    const synthesizeBtn = document.getElementById('synthesizeBtn');
+    const topicInput = document.getElementById('topicInput');
+    let startResearch;
+    const demoTopic = document.getElementById('demoTopic');
+    const demoSources = document.getElementById('demoSources');
+    const demoTone = document.getElementById('demoTone');
+    const runPreviewBtn = document.getElementById('runPreviewBtn');
+    const runLog = document.getElementById('runLog');
+    const agentCards = Array.from(document.querySelectorAll('.agent-card'));
+    const workflowNodes = Array.from(document.querySelectorAll('.workflow-node'));
+    const API_BASE_URL = 'http://127.0.0.1:8000';
+
+    const previewSteps = [
+      {
+        id: 'searcher',
+        name: 'searcher_agent',
+        output: (state) => `Found ${state.sourceCount} Tavily sources for "${state.topic}".`
+      },
+      {
+        id: 'summarizer',
+        name: 'summarizer_agent',
+        output: (state) => `Created ${state.sourceCount} Groq summaries.`
+      },
+      {
+        id: 'context',
+        name: 'context_retriever_agent',
+        output: () => 'Loaded Zep graph context for researcher_vasan.'
+      },
+      {
+        id: 'writer',
+        name: 'writer_agent',
+        output: (state) => `Drafted a ${state.tone.toLowerCase()} final_report.`
+      }
+    ];
+
+    function setActiveAgent(id) {
+      agentCards.forEach((card) => {
+        card.classList.toggle('active', card.dataset.agent === id);
+      });
+    }
+
+    function setActiveWorkflow(id) {
+      let hasReachedActive = false;
+      workflowNodes.forEach((node) => {
+        const isActive = node.dataset.step === id;
+        node.classList.toggle('active', isActive);
+        node.classList.toggle('done', !hasReachedActive && !isActive);
+        if (isActive) hasReachedActive = true;
+      });
+    }
+
+    function resetWorkflow() {
+      workflowNodes.forEach((node) => {
+        node.classList.remove('active', 'done');
+      });
+    }
+
+    function writeLog(lines) {
+      runLog.textContent = lines.join('\n');
+    }
+
+    startResearch = async function(topic) {
+      const state = {
+        topic: (demoTopic.value || topic || 'self-healing RAG systems').trim(),
+        sourceCount: demoSources.value,
+        tone: demoTone.value
+      };
+      const lines = [
+        'ResearchState initialized',
+        `topic: ${state.topic}`,
+        `source_count: ${state.sourceCount}`,
+        `tone: ${state.tone}`,
+        ''
+      ];
+      let index = 0;
+
+      demoTopic.value = state.topic;
+      resetWorkflow();
+      writeLog(lines);
+      document.getElementById('workflow').scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+      const tick = () => {
+        const step = previewSteps[index];
+        setActiveAgent(step.id);
+        setActiveWorkflow(step.id);
+        lines.push(`> ${step.name}`);
+        lines.push(`  ${step.output(state)}`);
+        lines.push('');
+        writeLog(lines);
+        index += 1;
+
+        if (index < previewSteps.length) {
+          window.setTimeout(tick, 650);
+        } else {
+          workflowNodes.forEach((node) => {
+            node.classList.remove('active');
+            node.classList.add('done');
+          });
+          lines.push('END');
+          lines.push('final_report is ready for rendering or download.');
+          writeLog(lines);
+        }
+      };
+
+      tick();
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/research`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            topic: state.topic,
+            source_count: Number(state.sourceCount),
+            report_length: 'Standard',
+            tone: state.tone,
+            include_citations: true
+          })
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || `HTTP ${response.status}`);
+        }
+
+        setActiveAgent('writer');
+        writeLog([
+          ...lines,
+          'BACKEND RESPONSE',
+          `sources: ${data.search_results.length}`,
+          `summaries: ${data.summaries.length}`,
+          `zep_context: ${data.zep_context ? 'loaded' : 'empty'}`,
+          '',
+          'FINAL REPORT',
+          data.final_report
+        ]);
+      } catch (error) {
+        writeLog([
+          ...lines,
+          'BACKEND ERROR',
+          error.message,
+          '',
+          `Make sure the backend is running: python api_server.py`
+        ]);
+      }
+    };
+
+    synthesizeBtn.addEventListener('click', () => startResearch(topicInput.value));
+    runPreviewBtn.addEventListener('click', () => startResearch(demoTopic.value));
+    topicInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') startResearch(topicInput.value);
+    });
+  </script>
+</body>
+</html>
